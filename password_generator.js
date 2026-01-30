@@ -501,8 +501,7 @@ async function handleSaveSubmit(e) {
     } catch (err) { showToast("Save Failed: " + err.message, 'error'); }
 }
 // --- Session Security (Auto-Lock & Hygiene) ---
-let inactivityTimer;
-const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+// (Variables declared at top of file)
 
 function resetInactivityTimer() {
     clearTimeout(inactivityTimer);
@@ -541,15 +540,33 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+
 function copyToClipboard(text, entityName = "Password") {
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
         showToast(`${entityName} Copied! Clearing in 30s...`);
-        // Auto-Clear Clipboard
+
+        // Robust Clearing Logic
         setTimeout(() => {
-            navigator.clipboard.writeText(" ").then(() => console.log("Clipboard cleared"));
+            // Browsers force focus for clipboard write
+            if (document.hasFocus()) {
+                navigator.clipboard.writeText(" ").then(() => {
+                    showToast("Clipboard Cleared (Security Check)", 'normal');
+                    console.log("Clipboard cleared successfully.");
+                }).catch(err => console.warn("Clipboard Clear Blocked (Focus lost?):", err));
+            } else {
+                console.warn("Clipboard Clear Skipped: Document not focused. (Browser Restriction)");
+                // Retry once on next focus? 
+                const clearOnFocus = () => {
+                    navigator.clipboard.writeText(" ");
+                    showToast("Clipboard Cleared", 'normal');
+                    document.removeEventListener('focus', clearOnFocus);
+                };
+                document.addEventListener('focus', clearOnFocus, { once: true });
+            }
         }, 30000);
-    }).catch(err => showToast("Copy Failed", 'error'));
+
+    }).catch(err => showToast("Copy Failed: Permission Denied", 'error'));
 }
 
 // ... UI Helpers ...
@@ -573,20 +590,9 @@ function handleTabSwitch(id) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.target === id));
     document.querySelectorAll('.view-section').forEach(s => s.classList.toggle('hidden', s.id !== `view-${id}`));
 }
-function generatePassword() {
-    const l = parseInt(document.getElementById("len-range").value), uc = document.getElementById("uc").checked, lc = document.getElementById("lc").checked, num = document.getElementById("num").checked, spec = document.getElementById("spec").checked;
-    if (!uc && !lc && !num && !spec) { showToast("Select options!", 'error'); return; }
-    let pool = "", g = "";
-    if (uc) { pool += CHAR_SETS.uppercase; g += getRandomChar(CHAR_SETS.uppercase); }
-    if (lc) { pool += CHAR_SETS.lowercase; g += getRandomChar(CHAR_SETS.lowercase); }
-    if (num) { pool += CHAR_SETS.numbers; g += getRandomChar(CHAR_SETS.numbers); }
-    if (spec) { pool += CHAR_SETS.symbols; g += getRandomChar(CHAR_SETS.symbols); }
-    let p = g; for (let i = 0; i < l - g.length; i++)p += getRandomChar(pool);
-    p = shuffleString(p); document.getElementById("output").value = p; saveToHistory(p);
-}
-function getRandomChar(s) { const a = new Uint32Array(1); window.crypto.getRandomValues(a); return s[a[0] % s.length]; }
-function shuffleString(s) { return s.split('').sort(() => 0.5 - Math.random()).join(''); }
-function copyToClipboard() { const v = document.getElementById("output").value; if (!v) return; navigator.clipboard.writeText(v).then(() => showToast("Copied")); }
+
+// REMOVED LEGACY GENERATOR FUNCTIONS
+
 function handleClearHistory() { localStorage.removeItem('pw_history'); renderHistory([]); if (currentUser) { db.collection("generate_history").where("uid", "==", currentUser.uid).get().then(s => { const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); return b.commit(); }).then(() => showToast("History cleared")); } }
 function getLocalHistory() { return JSON.parse(localStorage.getItem('pw_history') || '[]'); }
 function renderHistory(items) {
@@ -594,12 +600,30 @@ function renderHistory(items) {
     items.forEach(i => {
         const li = document.createElement('li');
         li.className = 'history-item';
-        // Masking!
-        li.innerHTML = `<span class="masked-pass">••••••••</span> <span class="reveal-btn">Show</span>`;
-        li.querySelector('.reveal-btn').addEventListener('click', (e) => {
+        // Masking logic with Toggle
+        li.innerHTML = `<span class="masked-pass" title="Click to Copy">••••••••</span> <span class="reveal-btn" style="cursor:pointer; color:var(--primary-color); margin-left:10px;">Show</span>`;
+
+        const span = li.querySelector('.masked-pass');
+        const btn = li.querySelector('.reveal-btn');
+
+        // Toggle Visibility on Click
+        btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            copyToClipboard(i.password, "History Item");
+            if (span.innerText === "••••••••") {
+                span.innerText = i.password;
+                btn.innerText = "Hide";
+            } else {
+                span.innerText = "••••••••";
+                btn.innerText = "Show";
+            }
         });
+
+        // Copy when clicking the password text (hidden or shown)
+        span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            copyToClipboard(i.password, "Password");
+        });
+
         l.appendChild(li);
     });
 }
