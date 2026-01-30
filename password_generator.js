@@ -138,7 +138,11 @@ const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 Minutes
 document.addEventListener('DOMContentLoaded', () => {
     // UI Events
     document.getElementById('but').addEventListener('click', generatePassword);
-    document.getElementById('copy').addEventListener('click', copyToClipboard);
+    document.getElementById('copy').addEventListener('click', () => {
+        const val = document.getElementById('output').value;
+        if (val) copyToClipboard(val);
+        else showToast("Generate a password first!", "error");
+    });
     document.getElementById('len-range').addEventListener('input', syncLength);
     document.getElementById('login-btn').addEventListener('click', handleLogin);
 
