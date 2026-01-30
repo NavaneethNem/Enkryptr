@@ -171,6 +171,46 @@
     </div>
 
     <!-- Modals -->
+    <dialog id="setup-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="text-align:center;">🔐 Setup Master Password</h2>
+            <p style="text-align:center;">This password encrypts your vault. <strong>If you lose it, your data is lost
+                    forever.</strong> We cannot recover it.</p>
+            <form id="setup-form" method="dialog">
+                <div class="form-group">
+                    <label>Create Master Password</label>
+                    <input type="password" id="setup-pass" required minlength="8" placeholder="Minimum 8 characters">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="setup-confirm" required placeholder="Type it again">
+                </div>
+                <p id="setup-error" class="error-msg text-center"></p>
+                <div class="modal-actions">
+                    <button type="submit" id="setup-submit" class="btn-primary" style="width:100%">Enable
+                        Encryption</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <dialog id="unlock-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="text-align:center;">🔓 Unlock Vault</h2>
+            <p style="text-align:center;">Enter your Master Password to decrypt your passwords.</p>
+            <form id="unlock-form" method="dialog">
+                <div class="form-group">
+                    <label>Master Password</label>
+                    <input type="password" id="unlock-pass" required autofocus>
+                </div>
+                <p id="unlock-error" class="error-msg text-center"></p>
+                <div class="modal-actions">
+                    <button type="submit" id="unlock-submit" class="btn-primary" style="width:100%">Unlock</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
     <dialog id="save-modal" class="modal">
         <div class="modal-content">
             <h2>Add to Vault</h2>
