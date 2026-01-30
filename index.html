@@ -201,20 +201,22 @@
             <form id="unlock-form" method="dialog">
                 <div class="form-group">
                     <label>Master Password</label>
-                    <input type="password" id="unlock-pass" required autofocus>
+                    <input type="password" id="unlock-pass" required autofocus placeholder="Enter encryption password">
                 </div>
                 <p id="unlock-error" class="error-msg text-center"></p>
 
-                <div class="modal-actions" style="justify-content: space-between; align-items: center;">
-                    <div>
-                        <button type="button" id="unlock-logout" class="btn-text" style="color:var(--text-muted)">Sign
-                            Out</button>
-                        <br>
-                        <button type="button" onclick="window.resetAccount()" class="btn-text"
-                            style="color:var(--danger-color); font-size: 0.75rem; margin-top:5px;">Reset
-                            Account</button>
-                    </div>
+                <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" id="unlock-logout" class="btn-text" style="margin-right: auto;">Sign
+                        Out</button>
                     <button type="submit" id="unlock-submit" class="btn-primary">Unlock</button>
+                </div>
+
+                <div
+                    style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; text-align: center;">
+                    <button type="button" onclick="window.resetAccount()" class="btn-text"
+                        style="color: var(--danger-color); font-size: 0.8em;">
+                        Forgot Password? Reset Account
+                    </button>
                 </div>
             </form>
         </div>
