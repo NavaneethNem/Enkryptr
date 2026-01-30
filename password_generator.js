@@ -167,8 +167,6 @@ function getSecureRandomInt(max) {
 function getRandomChar(str) { return str[getSecureRandomInt(str.length)]; }
 function shuffleString(str) {
     return str.split('').sort(() => 0.5 - Math.random()).join('');
-    // Note: Simple shuffle is fine for display, security comes from generation. 
-    // But Fisher-Yates is better, keeping simple for brevity here.
 }
 
 function copyToClipboard() {
@@ -193,13 +191,10 @@ function saveToHistory(password) {
     if (local.length > 5) local.pop();
     localStorage.setItem('pw_history', JSON.stringify(local));
 
-    // Render Local immediately if not logged in
     if (!currentUser) {
         renderHistory(local);
     }
-    // Note: We don't save ephemeral history to Cloud in this version, 
-    // we only sync Vault items. But earlier I implemented history sync.
-    // I will honor the previous feature: Sync History too.
+
     if (currentUser) {
         db.collection("generate_history").add({
             uid: currentUser.uid,
@@ -210,14 +205,21 @@ function saveToHistory(password) {
 }
 
 function subscribeToHistory(uid) {
+    // REMOVED .orderBy() to prevent index error
     historyUnsubscribe = db.collection("generate_history")
         .where("uid", "==", uid)
-        .orderBy("timestamp", "desc")
-        .limit(5)
         .onSnapshot(snap => {
             const items = [];
             snap.forEach(doc => items.push(doc.data()));
-            renderHistory(items);
+
+            // Client-side Sort
+            items.sort((a, b) => {
+                const tA = a.timestamp ? (a.timestamp.seconds || 0) : 0;
+                const tB = b.timestamp ? (b.timestamp.seconds || 0) : 0;
+                return tB - tA;
+            });
+
+            renderHistory(items.slice(0, 5));
         });
 }
 
@@ -235,7 +237,6 @@ function renderHistory(items) {
         li.innerHTML = `<span>${item.password}</span><span style="color:#aaa;font-size:0.8em">${timeStr}</span>`;
         li.addEventListener('click', () => {
             navigator.clipboard.writeText(item.password);
-            // Toast or feedback?
         });
         list.appendChild(li);
     });
@@ -274,16 +275,24 @@ function handleSaveSubmit(e) {
 }
 
 function subscribeToVault(uid) {
+    // REMOVED .orderBy() to prevent index error
     vaultUnsubscribe = db.collection("vault")
         .where("uid", "==", uid)
-        .orderBy("timestamp", "desc")
         .onSnapshot(snap => {
             vaultItems = [];
             snap.forEach(doc => {
                 vaultItems.push({ id: doc.id, ...doc.data() });
             });
+
+            // Client-side Sort
+            vaultItems.sort((a, b) => {
+                const tA = a.timestamp ? (a.timestamp.seconds || 0) : 0;
+                const tB = b.timestamp ? (b.timestamp.seconds || 0) : 0;
+                return tB - tA;
+            });
+
             renderVault(vaultItems);
-        });
+        }, err => console.error(err));
 }
 
 function handleVaultSearch(e) {
@@ -314,7 +323,7 @@ function renderVault(items) {
         div.innerHTML = `
             <div class="vault-icon">
                 ${imgHtml}
-                <div class="placeholder" ${faviconUrl ? 'style="display:none"' : ''}>${item.name[0].toUpperCase()}</div>
+                <div class="placeholder" ${faviconUrl ? 'style="display:none"' : ''}>${(item.name || "?")[0].toUpperCase()}</div>
             </div>
             <div class="vault-info">
                 <div class="vault-name">${item.name}</div>
