@@ -125,11 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIForUser(user);
 
         if (user) {
-            await checkUserEncryptionSetup(user);
-            // We do NOT load vault content here. We wait for encryption setup check.
-            document.getElementById('history-status').innerText = "Cloud";
-            document.getElementById('history-status').classList.add('online');
-            subscribeToHistory(user.uid);
+            try {
+                await checkUserEncryptionSetup(user);
+                document.getElementById('history-status').innerText = "Cloud";
+                document.getElementById('history-status').classList.add('online');
+                subscribeToHistory(user.uid);
+            } catch (err) {
+                console.error("Auth Flow Error:", err);
+                showToast("Error: Check Console/Permissions", 'error');
+            }
         } else {
             sessionKey = null; // Clear key on logout
             if (vaultUnsubscribe) vaultUnsubscribe();
@@ -447,6 +451,14 @@ function renderHistory(items) {
 function handleSaveClick() {
     const pwd = document.getElementById("output").value;
     if (!pwd) { showToast("Generate first!", 'error'); return; }
+
+    if (currentUser && !sessionKey) {
+        // User logged in but locked? Prompt unlock
+        showToast("Please Unlock Vault first", 'error');
+        checkUserEncryptionSetup(currentUser); // Retry setup/unlock flow
+        return;
+    }
+
     document.getElementById("modal-pass").value = pwd;
     document.getElementById("modal-site").value = "";
     document.getElementById("modal-url").value = "";
