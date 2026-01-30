@@ -25,7 +25,8 @@ const CHAR_SETS = {
 let currentUser = null;
 let historyUnsubscribe = null;
 let vaultUnsubscribe = null;
-let vaultItems = []; // Store locally for search/filter
+let vaultItems = [];
+let itemToDelete = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Generator Events ---
@@ -47,8 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modal-cancel').addEventListener('click', () => document.getElementById('save-modal').close());
     document.getElementById('save-form').addEventListener('submit', handleSaveSubmit);
 
-    // --- Vault Events ---
+    // Confirm Delete Modal
+    document.getElementById('confirm-cancel').addEventListener('click', () => document.getElementById('confirm-modal').close());
+    document.getElementById('confirm-delete').addEventListener('click', executeDelete);
+
+    // --- Vault & History Events ---
     document.getElementById('vault-search').addEventListener('input', handleVaultSearch);
+    document.getElementById('clear-history-btn').addEventListener('click', handleClearHistory);
 
     // Initial State
     renderHistory(getLocalHistory());
@@ -60,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (user) {
             subscribeToHistory(user.uid);
-            subscribeToVault(user.uid); // Load vault items
+            subscribeToVault(user.uid);
             document.getElementById('history-status').innerText = "Cloud";
             document.getElementById('history-status').classList.add('online');
         } else {
@@ -68,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (vaultUnsubscribe) vaultUnsubscribe();
 
             vaultItems = [];
-            renderVault(vaultItems); // Clear vault UI
+            renderVault(vaultItems);
 
             renderHistory(getLocalHistory());
             document.getElementById('history-status').innerText = "Local";
@@ -83,16 +89,36 @@ function syncLength(e) {
     document.getElementById('len-val').innerText = val;
 }
 
+// --- Toast System ---
+function showToast(message, type = 'normal') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+    container.appendChild(toast);
+
+    // Trigger Animation
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 // --- Auth ---
 async function handleLogin() {
     try {
         await auth.signInWithPopup(provider);
+        showToast("Signed in successfully");
     } catch (error) {
         console.error("Login Error:", error);
+        showToast("Login failed", 'error');
     }
 }
 async function handleLogout() {
     await auth.signOut();
+    showToast("Signed out");
 }
 
 function updateUIForUser(user) {
@@ -112,17 +138,15 @@ function updateUIForUser(user) {
         loginBtn.classList.remove('hidden');
         userInfo.classList.add('hidden');
         saveBtn.classList.add('hidden');
-        vaultMsg.classList.remove('hidden'); // Show "Locked" message
+        vaultMsg.classList.remove('hidden');
     }
 }
 
 // --- Tabs ---
 function handleTabSwitch(targetId) {
-    // Update Buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.target === targetId);
     });
-    // Update Views
     document.querySelectorAll('.view-section').forEach(sec => {
         sec.classList.toggle('hidden', sec.id !== `view-${targetId}`);
     });
@@ -137,7 +161,7 @@ function generatePassword() {
     const spec = document.getElementById("spec").checked;
 
     if (!uc && !lc && !num && !spec) {
-        document.getElementById("error-msg").innerText = "Select at least one option!";
+        showToast("Select at least one option!", 'error');
         return;
     }
     document.getElementById("error-msg").innerText = "";
@@ -177,6 +201,7 @@ function copyToClipboard() {
         const originalHtml = btn.innerHTML;
         btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
         setTimeout(() => btn.innerHTML = originalHtml, 2000);
+        showToast("Copied to clipboard");
     });
 }
 
@@ -185,15 +210,12 @@ function getLocalHistory() {
     return JSON.parse(localStorage.getItem('pw_history') || '[]');
 }
 function saveToHistory(password) {
-    // Save Local
     const local = getLocalHistory();
     local.unshift({ password, timestamp: new Date().toISOString() });
     if (local.length > 5) local.pop();
     localStorage.setItem('pw_history', JSON.stringify(local));
 
-    if (!currentUser) {
-        renderHistory(local);
-    }
+    if (!currentUser) renderHistory(local);
 
     if (currentUser) {
         db.collection("generate_history").add({
@@ -204,21 +226,39 @@ function saveToHistory(password) {
     }
 }
 
+function handleClearHistory() {
+    // 1. Clear Local
+    localStorage.removeItem('pw_history');
+    renderHistory([]);
+
+    // 2. Clear Cloud (if logged in)
+    if (currentUser) {
+        db.collection("generate_history").where("uid", "==", currentUser.uid).get()
+            .then(snapshot => {
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                return batch.commit();
+            }).then(() => {
+                showToast("History cleared");
+            }).catch(err => showToast("Error clearing history", 'error'));
+    } else {
+        showToast("Local history cleared");
+    }
+}
+
 function subscribeToHistory(uid) {
-    // REMOVED .orderBy() to prevent index error
     historyUnsubscribe = db.collection("generate_history")
         .where("uid", "==", uid)
         .onSnapshot(snap => {
-            const items = [];
+            let items = [];
             snap.forEach(doc => items.push(doc.data()));
-
-            // Client-side Sort
-            items.sort((a, b) => {
+            items.sort((a, b) => { // Client-side sort
                 const tA = a.timestamp ? (a.timestamp.seconds || 0) : 0;
                 const tB = b.timestamp ? (b.timestamp.seconds || 0) : 0;
                 return tB - tA;
             });
-
             renderHistory(items.slice(0, 5));
         });
 }
@@ -229,7 +269,6 @@ function renderHistory(items) {
     items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'history-item';
-        // Handle timestamp
         let timeStr = "";
         if (item.timestamp && item.timestamp.seconds) timeStr = new Date(item.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         else if (item.timestamp) timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -237,16 +276,16 @@ function renderHistory(items) {
         li.innerHTML = `<span>${item.password}</span><span style="color:#aaa;font-size:0.8em">${timeStr}</span>`;
         li.addEventListener('click', () => {
             navigator.clipboard.writeText(item.password);
+            showToast("Password copied");
         });
         list.appendChild(li);
     });
 }
 
 // --- Vault Logic ---
-
 function handleSaveClick() {
     const pwd = document.getElementById("output").value;
-    if (!pwd) { alert("Generate a password first!"); return; }
+    if (!pwd) { showToast("Generate a password first!", 'error'); return; }
 
     document.getElementById("modal-pass").value = pwd;
     document.getElementById("modal-site").value = "";
@@ -270,12 +309,31 @@ function handleSaveSubmit(e) {
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
         document.getElementById("save-modal").close();
-        alert("Saved to Vault!");
-    }).catch(err => alert("Error saving: " + err.message));
+        showToast("Saved to Vault!");
+    }).catch(err => showToast("Error: " + err.message, 'error'));
+}
+
+function promptDelete(id) {
+    itemToDelete = id;
+    document.getElementById('confirm-modal').showModal();
+}
+
+function executeDelete() {
+    if (!itemToDelete || !currentUser) return;
+
+    db.collection("vault").doc(itemToDelete).delete()
+        .then(() => {
+            document.getElementById('confirm-modal').close();
+            showToast("Item deleted");
+            itemToDelete = null;
+        })
+        .catch(err => {
+            document.getElementById('confirm-modal').close();
+            showToast("Error deleting: " + err.message, 'error');
+        });
 }
 
 function subscribeToVault(uid) {
-    // REMOVED .orderBy() to prevent index error
     vaultUnsubscribe = db.collection("vault")
         .where("uid", "==", uid)
         .onSnapshot(snap => {
@@ -283,14 +341,11 @@ function subscribeToVault(uid) {
             snap.forEach(doc => {
                 vaultItems.push({ id: doc.id, ...doc.data() });
             });
-
-            // Client-side Sort
-            vaultItems.sort((a, b) => {
+            vaultItems.sort((a, b) => { // Client-side sort
                 const tA = a.timestamp ? (a.timestamp.seconds || 0) : 0;
                 const tB = b.timestamp ? (b.timestamp.seconds || 0) : 0;
                 return tB - tA;
             });
-
             renderVault(vaultItems);
         }, err => console.error(err));
 }
@@ -329,14 +384,23 @@ function renderVault(items) {
                 <div class="vault-name">${item.name}</div>
                 <div class="vault-url">${item.url || 'No URL'}</div>
             </div>
-            <button class="vault-copy" title="Copy Password">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
+            <div class="vault-actions">
+                <button class="vault-btn copy-btn" title="Copy">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+                <button class="vault-btn delete" title="Delete">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+            </div>
         `;
 
-        div.querySelector('.vault-copy').addEventListener('click', () => {
+        div.querySelector('.copy-btn').addEventListener('click', () => {
             navigator.clipboard.writeText(item.password);
-            alert(`Copied password for ${item.name}`);
+            showToast(`Copied ${item.name}`);
+        });
+
+        div.querySelector('.delete').addEventListener('click', () => {
+            promptDelete(item.id);
         });
 
         list.appendChild(div);
