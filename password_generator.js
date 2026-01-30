@@ -317,7 +317,7 @@ function showToast(msg, type = 'normal') {
     requestAnimationFrame(() => t.classList.add('show')); setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300) }, 3000);
 }
 async function handleLogin() { try { await auth.signInWithPopup(provider); showToast("Signed in"); } catch (e) { showToast("Login failed", 'error'); } }
-async function handleLogout() { await auth.signOut(); location.reload(); }
+async function handleLogout() { localStorage.removeItem('pw_history'); await auth.signOut(); location.reload(); }
 function updateUIForUser(u) {
     const l = document.getElementById('login-btn'), i = document.getElementById('user-info'), s = document.getElementById('save-btn'), v = document.getElementById('vault-login-msg');
     if (u) { l.classList.add('hidden'); i.classList.remove('hidden'); document.getElementById('user-photo').src = u.photoURL; document.getElementById('user-name').innerText = u.displayName.split(' ')[0]; s.classList.remove('hidden'); v.classList.add('hidden'); }
