@@ -13,41 +13,114 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const provider = new firebase.auth.GoogleAuthProvider();
 
-// --- Crypto Utils ---
+// --- Crypto Utils (Enhanced) ---
 const CryptoUtils = {
+    CONSTANTS: {
+        ALG: "AES-GCM",
+        HASH: "SHA-256",
+        ITERATIONS_NEW: 500000, // Upgrade to 500k
+        ITERATIONS_LEGACY: 100000
+    },
+
     generateSalt: () => {
         const array = new Uint8Array(16);
         window.crypto.getRandomValues(array);
         return array;
     },
-    deriveKey: async (password, salt) => {
+
+    deriveKey: async (password, salt, iterations) => {
+        const iter = iterations || CryptoUtils.CONSTANTS.ITERATIONS_LEGACY;
         const enc = new TextEncoder();
         const keyMaterial = await window.crypto.subtle.importKey(
             "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]
         );
         return window.crypto.subtle.deriveKey(
-            { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
-            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+            { name: "PBKDF2", salt: salt, iterations: iter, hash: CryptoUtils.CONSTANTS.HASH },
+            keyMaterial, { name: CryptoUtils.CONSTANTS.ALG, length: 256 }, false, ["encrypt", "decrypt"]
         );
     },
+
     encrypt: async (text, key) => {
         const iv = window.crypto.getRandomValues(new Uint8Array(12));
         const encoded = new TextEncoder().encode(text);
-        const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encoded);
-        return { iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) };
+        const encrypted = await window.crypto.subtle.encrypt({ name: CryptoUtils.CONSTANTS.ALG, iv: iv }, key, encoded);
+
+        // Structured Payload with Metadata
+        return {
+            v: 1,
+            alg: "AES-GCM-256",
+            iv: Array.from(iv),
+            data: Array.from(new Uint8Array(encrypted))
+        };
     },
+
     decrypt: async (encryptedObj, key) => {
         try {
+            // Validation
+            if (!encryptedObj.iv || !encryptedObj.data) throw new Error("Invalid Ciphertext Format");
+
+            // Check Version (Support Legacy)
+            if (encryptedObj.v === 1) {
+                if (encryptedObj.alg !== "AES-GCM-256") throw new Error("Unsupported Algorithm");
+            }
+
             const iv = new Uint8Array(encryptedObj.iv);
             const data = new Uint8Array(encryptedObj.data);
-            const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+            const decrypted = await window.crypto.subtle.decrypt({ name: CryptoUtils.CONSTANTS.ALG, iv: iv }, key, data);
             return new TextDecoder().decode(decrypted);
         } catch (e) {
-            console.error("Decryption failed", e);
-            throw new Error("Wrong Password");
+            console.error("Crypto Op Failed:", e);
+            throw new Error("Decryption Failed: Key mismatch or data corruption");
         }
     }
 };
+
+// --- Secure Password Generator ---
+function getSecureRandomInt(max) {
+    const array = new Uint32Array(1);
+    window.crypto.getRandomValues(array);
+    return array[0] % max;
+}
+
+function secureShuffle(array) {
+    // Fisher-Yates Shuffle with Crypto Random
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = getSecureRandomInt(i + 1);
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array.join('');
+}
+
+function generatePassword() {
+    const l = parseInt(document.getElementById("len-range").value);
+    const uc = document.getElementById("uc").checked;
+    const lc = document.getElementById("lc").checked;
+    const num = document.getElementById("num").checked;
+    const spec = document.getElementById("spec").checked;
+
+    if (!uc && !lc && !num && !spec) { showToast("Select options!", 'error'); return; }
+
+    let pool = "";
+    let mandatory = [];
+
+    if (uc) { pool += CHAR_SETS.uppercase; mandatory.push(CHAR_SETS.uppercase[getSecureRandomInt(CHAR_SETS.uppercase.length)]); }
+    if (lc) { pool += CHAR_SETS.lowercase; mandatory.push(CHAR_SETS.lowercase[getSecureRandomInt(CHAR_SETS.lowercase.length)]); }
+    if (num) { pool += CHAR_SETS.numbers; mandatory.push(CHAR_SETS.numbers[getSecureRandomInt(CHAR_SETS.numbers.length)]); }
+    if (spec) { pool += CHAR_SETS.symbols; mandatory.push(CHAR_SETS.symbols[getSecureRandomInt(CHAR_SETS.symbols.length)]); }
+
+    let finalPass = mandatory; // Start with mandatory chars
+    const remaining = l - mandatory.length;
+
+    for (let i = 0; i < remaining; i++) {
+        finalPass.push(pool[getSecureRandomInt(pool.length)]);
+    }
+
+    // Shuffle efficiently
+    const p = secureShuffle(finalPass);
+
+    document.getElementById("output").value = p;
+    saveToHistory(p);
+}
 
 // App Vars
 const CHAR_SETS = { uppercase: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", lowercase: "abcdefghijklmnopqrstuvwxyz", numbers: "1234567890", symbols: "~!@#$%^&*+=?<>" };
@@ -57,6 +130,10 @@ let vaultUnsubscribe = null;
 let historyUnsubscribe = null;
 let vaultItems = [];
 let itemToDelete = null;
+
+// Auto-Lock Config
+let inactivityTimer;
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 Minutes
 
 document.addEventListener('DOMContentLoaded', () => {
     // UI Events
@@ -220,71 +297,155 @@ async function handleChangePasswordSubmit(e) {
 }
 
 // ... (Rest of logic: Setup, Unlock, Vault, etc. - Kept SAME as previous, just overwritten to ensuring consistency) ...
+// --- Setup & Reset (Enhanced) ---
 async function checkUserEncryptionSetup(user) {
-    const userDocRef = db.collection('users').doc(user.uid);
-    const doc = await userDocRef.get();
-    if (!doc.exists || !doc.data().salt || !doc.data().challenge) {
-        document.getElementById('setup-modal').showModal();
-    } else {
-        const data = doc.data();
-        document.getElementById('unlock-modal').dataset.salt = JSON.stringify(data.salt);
-        document.getElementById('unlock-modal').dataset.challenge = JSON.stringify(data.challenge);
-        document.getElementById('unlock-modal').showModal();
+    try {
+        const userDocRef = db.collection('users').doc(user.uid);
+        const doc = await userDocRef.get();
+
+        if (!doc.exists || !doc.data().salt || !doc.data().challenge) {
+            document.getElementById('setup-modal').showModal();
+        } else {
+            const data = doc.data();
+            document.getElementById('unlock-modal').dataset.salt = JSON.stringify(data.salt);
+            document.getElementById('unlock-modal').dataset.challenge = JSON.stringify(data.challenge);
+
+            // Handle Iterations Migration (Default to Legacy if missing)
+            const iterations = data.iterations || CryptoUtils.CONSTANTS.ITERATIONS_LEGACY;
+            document.getElementById('unlock-modal').dataset.iterations = iterations;
+
+            document.getElementById('unlock-modal').showModal();
+        }
+    } catch (err) {
+        console.error("Firestore Access Error:", err);
+        showToast("Database Access Denied. Check Rules.", 'error');
     }
 }
+
+// Global Reset Function (Hardened)
 window.resetAccount = async function () {
-    if (!currentUser || !confirm("⚠ DELETE ALL DATA?\nThis will wipe your Vault and Master Password. You cannot undo this.")) return;
+    if (!currentUser) return;
+
+    // Strict Confirmation challenge
+    const confirmation = prompt("DANGER: This will permanently DELETE your vault.\nTo confirm, strictly type: DELETE");
+    if (confirmation !== "DELETE") {
+        alert("Reset Cancelled. You must type DELETE (uppercase) to confirm.");
+        return;
+    }
+
     try {
         const batch = db.batch();
         batch.delete(db.collection('users').doc(currentUser.uid));
+
         const vaultSnaps = await db.collection('vault').where('uid', '==', currentUser.uid).get();
         vaultSnaps.forEach(doc => batch.delete(doc.ref));
+
         const histSnaps = await db.collection('generate_history').where('uid', '==', currentUser.uid).get();
         histSnaps.forEach(doc => batch.delete(doc.ref));
+
         await batch.commit();
-        alert("Account Reset. Reloading...");
+
+        // Clear Local State
+        localStorage.clear();
+        sessionKey = null;
+
+        alert("Account Reset Complete. Reloading...");
         location.reload();
-    } catch (e) { alert("Reset Error: " + e.message); }
+    } catch (e) {
+        alert("Reset Error: " + e.message);
+    }
 };
+
 async function handleSetupSubmit(e) {
     e.preventDefault();
     const p1 = document.getElementById('setup-pass').value;
     const p2 = document.getElementById('setup-confirm').value;
+
     if (p1.length < 8) { document.getElementById('setup-error').innerText = "Too short (min 8 chars)."; return; }
     if (p1 !== p2) { document.getElementById('setup-error').innerText = "Passwords do not match."; return; }
+
     try {
         const salt = CryptoUtils.generateSalt();
-        const key = await CryptoUtils.deriveKey(p1, salt);
+        // New users get High Iterations
+        const iterations = CryptoUtils.CONSTANTS.ITERATIONS_NEW;
+
+        const key = await CryptoUtils.deriveKey(p1, salt, iterations);
         const challenge = await CryptoUtils.encrypt("VALIDATION_TOKEN", key);
-        await db.collection('users').doc(currentUser.uid).set({ salt: Array.from(salt), challenge: challenge, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+        await db.collection('users').doc(currentUser.uid).set({
+            salt: Array.from(salt),
+            challenge: challenge,
+            iterations: iterations, // Store config!
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
         sessionKey = key;
         document.getElementById('setup-modal').close();
-        showToast("Encryption Enabled.");
+        showToast("Encryption Enabled (High Security).");
         startSession();
-    } catch (err) { console.error(err); document.getElementById('setup-error').innerText = "Error: " + err.message; }
+    } catch (err) {
+        console.error(err);
+        document.getElementById('setup-error').innerText = "Error: " + err.message;
+    }
 }
+
+// Rate Limiting Logic
+let failedAttempts = 0;
+let lockoutUntil = 0;
+
 async function handleUnlockSubmit(e) {
     e.preventDefault();
+
+    // Check Rate Limit
+    if (Date.now() < lockoutUntil) {
+        const wait = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        document.getElementById('unlock-error').innerText = `Too many attempts. Wait ${wait}s.`;
+        return;
+    }
+
     const password = document.getElementById('unlock-pass').value;
     const saltArr = JSON.parse(document.getElementById('unlock-modal').dataset.salt || "[]");
     const challengeRaw = document.getElementById('unlock-modal').dataset.challenge;
-    if (saltArr.length === 0 || !challengeRaw) { document.getElementById('unlock-error').innerText = "Security Data Missing. Please Reset Account."; return; }
+    const iterations = parseInt(document.getElementById('unlock-modal').dataset.iterations || CryptoUtils.CONSTANTS.ITERATIONS_LEGACY);
+
+    if (saltArr.length === 0 || !challengeRaw) {
+        document.getElementById('unlock-error').innerText = "Security Data Corrupt. Please Reset.";
+        return;
+    }
+
     try {
         const salt = new Uint8Array(saltArr);
-        const key = await CryptoUtils.deriveKey(password, salt);
+        const key = await CryptoUtils.deriveKey(password, salt, iterations);
+
         const challengeObj = JSON.parse(challengeRaw);
         try {
             const result = await CryptoUtils.decrypt(challengeObj, key);
             if (result !== "VALIDATION_TOKEN") throw new Error("Invalid Token");
         } catch (decErr) {
-            console.error("Unlock Failed:", decErr);
-            document.getElementById('unlock-error').innerText = "Incorrect Master Password.";
+            // Handle Failed Attempt
+            failedAttempts++;
+            if (failedAttempts >= 3) {
+                // Exponential Backoff: 5s, 10s, 20s...
+                const penalty = 5000 * Math.pow(2, failedAttempts - 3);
+                lockoutUntil = Date.now() + penalty;
+                document.getElementById('unlock-error').innerText = `Incorrect. Locked for ${penalty / 1000}s.`;
+                return;
+            }
+
+            document.getElementById('unlock-error').innerText = `Incorrect Password. (${3 - failedAttempts} tries left)`;
             document.getElementById('unlock-pass').value = "";
             document.getElementById('unlock-pass').focus();
             return;
         }
+
+        // Success
+        failedAttempts = 0; // Reset counter
         authConfirmSuccess(key);
-    } catch (err) { console.error(err); document.getElementById('unlock-error').innerText = "Error unlocking: " + err.message; }
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('unlock-error').innerText = "Error: " + err.message;
+    }
 }
 function authConfirmSuccess(key) { sessionKey = key; document.getElementById('unlock-modal').close(); showToast("Vault Unlocked"); startSession(); }
 function startSession() { subscribeToVault(currentUser.uid); subscribeToHistory(currentUser.uid); document.getElementById('history-status').innerText = "Cloud (Encrypted)"; document.getElementById('history-status').classList.add('online'); }
@@ -339,19 +500,79 @@ async function handleSaveSubmit(e) {
         document.getElementById("save-modal").close(); showToast("Encrypted & Saved!");
     } catch (err) { showToast("Save Failed: " + err.message, 'error'); }
 }
+// --- Session Security (Auto-Lock & Hygiene) ---
+let inactivityTimer;
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    if (sessionKey && currentUser) {
+        inactivityTimer = setTimeout(lockVault, LOCK_TIMEOUT_MS);
+    }
+}
+
+function lockVault() {
+    if (!sessionKey) return;
+    console.log("Auto-locking Vault...");
+    sessionKey = null; // Wipe Key from Memory
+
+    // UI Cleanup
+    vaultItems = [];
+    renderVault([]);
+    renderHistory([]); // Clear sensitive history from DOM
+    document.getElementById('history-status').innerText = "Locked";
+    document.getElementById("output").value = ""; // Clear generator output
+
+    if (vaultUnsubscribe) vaultUnsubscribe();
+    if (historyUnsubscribe) historyUnsubscribe();
+
+    showToast("Vault Locked (Inactivity)", 'normal');
+    checkUserEncryptionSetup(currentUser); // Re-prompt unlock
+}
+
+// Global Activity Listeners
+['mousemove', 'keydown', 'click', 'scroll'].forEach(evt => document.addEventListener(evt, resetInactivityTimer));
+
+// Lock on Tab Hide (Optional: strict security)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && sessionKey) {
+        // Option 1: Lock immediately
+        lockVault();
+    }
+});
+
+function copyToClipboard(text, entityName = "Password") {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(`${entityName} Copied! Clearing in 30s...`);
+        // Auto-Clear Clipboard
+        setTimeout(() => {
+            navigator.clipboard.writeText(" ").then(() => console.log("Clipboard cleared"));
+        }, 30000);
+    }).catch(err => showToast("Copy Failed", 'error'));
+}
+
+// ... UI Helpers ...
 function syncLength(e) { document.getElementById('len').value = e.target.value; document.getElementById('len-val').innerText = e.target.value; }
 function initTheme() { const t = localStorage.getItem('theme') || 'light'; if (t === 'dark') applyTheme('dark'); }
 function toggleTheme() { const isDark = document.body.classList.contains('dark-mode'); applyTheme(isDark ? 'light' : 'dark'); localStorage.setItem('theme', isDark ? 'light' : 'dark'); }
 function applyTheme(t) { const s = document.getElementById('icon-sun'), m = document.getElementById('icon-moon'); if (t === 'dark') { document.body.classList.add('dark-mode'); s.classList.remove('hidden'); m.classList.add('hidden'); } else { document.body.classList.remove('dark-mode'); s.classList.add('hidden'); m.classList.remove('hidden'); } }
 function showToast(msg, type = 'normal') { const c = document.getElementById('toast-container'), t = document.createElement('div'); t.className = `toast ${type}`; t.innerText = msg; c.appendChild(t); requestAnimationFrame(() => t.classList.add('show')); setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300) }, 3000); }
 async function handleLogin() { try { await auth.signInWithPopup(provider); showToast("Signed in"); } catch (e) { showToast("Login failed", 'error'); } }
-async function handleLogout() { localStorage.removeItem('pw_history'); await auth.signOut(); location.reload(); }
+async function handleLogout() { localStorage.removeItem('pw_history'); if (vaultUnsubscribe) vaultUnsubscribe(); sessionKey = null; await auth.signOut(); location.reload(); }
 function updateUIForUser(u) {
     const l = document.getElementById('login-btn'), i = document.getElementById('user-info'), s = document.getElementById('save-btn'), v = document.getElementById('vault-login-msg');
     if (u) { l.classList.add('hidden'); i.classList.remove('hidden'); document.getElementById('user-photo').src = u.photoURL; document.getElementById('user-name').innerText = u.displayName.split(' ')[0]; s.classList.remove('hidden'); v.classList.add('hidden'); }
     else { l.classList.remove('hidden'); i.classList.add('hidden'); s.classList.add('hidden'); v.classList.remove('hidden'); }
 }
-function handleTabSwitch(id) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.target === id)); document.querySelectorAll('.view-section').forEach(s => s.classList.toggle('hidden', s.id !== `view-${id}`)); }
+function handleTabSwitch(id) {
+    // Clear potentially sensitive views when switching
+    if (id === 'generator') {
+        // Maybe don't clear, but ensures we don't leave vault open?
+    }
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.target === id));
+    document.querySelectorAll('.view-section').forEach(s => s.classList.toggle('hidden', s.id !== `view-${id}`));
+}
 function generatePassword() {
     const l = parseInt(document.getElementById("len-range").value), uc = document.getElementById("uc").checked, lc = document.getElementById("lc").checked, num = document.getElementById("num").checked, spec = document.getElementById("spec").checked;
     if (!uc && !lc && !num && !spec) { showToast("Select options!", 'error'); return; }
@@ -368,7 +589,20 @@ function shuffleString(s) { return s.split('').sort(() => 0.5 - Math.random()).j
 function copyToClipboard() { const v = document.getElementById("output").value; if (!v) return; navigator.clipboard.writeText(v).then(() => showToast("Copied")); }
 function handleClearHistory() { localStorage.removeItem('pw_history'); renderHistory([]); if (currentUser) { db.collection("generate_history").where("uid", "==", currentUser.uid).get().then(s => { const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); return b.commit(); }).then(() => showToast("History cleared")); } }
 function getLocalHistory() { return JSON.parse(localStorage.getItem('pw_history') || '[]'); }
-function renderHistory(items) { const l = document.getElementById('history-list'); l.innerHTML = ""; items.forEach(i => { const li = document.createElement('li'); li.className = 'history-item'; li.innerHTML = `<span>${i.password}</span>`; li.addEventListener('click', () => { navigator.clipboard.writeText(i.password); showToast("Copied"); }); l.appendChild(li); }); }
+function renderHistory(items) {
+    const l = document.getElementById('history-list'); l.innerHTML = "";
+    items.forEach(i => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        // Masking!
+        li.innerHTML = `<span class="masked-pass">••••••••</span> <span class="reveal-btn">Show</span>`;
+        li.querySelector('.reveal-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            copyToClipboard(i.password, "History Item");
+        });
+        l.appendChild(li);
+    });
+}
 function handleSaveClick() { const p = document.getElementById("output").value; if (!p) { showToast("Generate first!", 'error'); return; } if (currentUser && !sessionKey) { showToast("Unlock Vault first", 'error'); checkUserEncryptionSetup(currentUser); return; } document.getElementById("modal-pass").value = p; document.getElementById("modal-site").value = ""; document.getElementById("modal-url").value = ""; document.getElementById("save-modal").showModal(); }
 function promptDelete(id) { itemToDelete = id; document.getElementById('confirm-modal').showModal(); }
 function executeDelete() { if (!itemToDelete) return; db.collection("vault").doc(itemToDelete).delete().then(() => { document.getElementById('confirm-modal').close(); showToast("Deleted"); }).catch(e => showToast("Error: " + e.message, 'error')); }
@@ -376,8 +610,17 @@ function handleVaultSearch(e) { const t = e.target.value.toLowerCase(); renderVa
 function renderVault(items) {
     const l = document.getElementById('vault-list'); l.innerHTML = ""; if (items.length === 0) { l.innerHTML = `<div class="empty-state">No passwords found.</div>`; return; }
     items.forEach(i => {
-        const d = i.url ? i.url.replace(/^https?:\/\//, '').split('/')[0] : '', f = d ? `https://www.google.com/s2/favicons?domain=${d}&sz=64` : '', img = f ? `<img src="${f}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : '';
-        const div = document.createElement('div'); div.className = 'vault-item'; div.innerHTML = `<div class="vault-icon">${img}<div class="placeholder" ${f ? 'style="display:none"' : ''}>${(i.name || "?")[0].toUpperCase()}</div></div><div class="vault-info"><div class="vault-name">${i.name}</div><div class="vault-url">${i.url || 'No URL'}</div></div><div class="vault-actions"><button class="vault-btn copy-btn" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="vault-btn delete" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>`;
-        div.querySelector('.copy-btn').addEventListener('click', () => { navigator.clipboard.writeText(i.password); showToast(`Copied ${i.name}`); }); div.querySelector('.delete').addEventListener('click', () => promptDelete(i.id)); l.appendChild(div);
+        // No Favicons (Privacy) - strict
+        const div = document.createElement('div'); div.className = 'vault-item';
+        div.innerHTML = `
+            <div class="vault-icon"><div class="placeholder">${(i.name || "?")[0].toUpperCase()}</div></div>
+            <div class="vault-info"><div class="vault-name">${i.name}</div><div class="vault-url">${i.url || 'No URL'}</div></div>
+            <div class="vault-actions">
+                <button class="vault-btn copy-btn" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                <button class="vault-btn delete" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+            </div>`;
+        div.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(i.password, i.name));
+        div.querySelector('.delete').addEventListener('click', () => promptDelete(i.id));
+        l.appendChild(div);
     });
 }
