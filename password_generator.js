@@ -44,7 +44,7 @@ const CryptoUtils = {
             return new TextDecoder().decode(decrypted);
         } catch (e) {
             console.error("Decryption failed", e);
-            throw new Error("Wrong Password"); // Explicit error
+            throw new Error("Wrong Password");
         }
     }
 };
@@ -68,10 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
 
     // Unlock modal logout
-    document.getElementById('unlock-logout').addEventListener('click', () => {
-        document.getElementById('unlock-modal').close();
-        handleLogout();
-    });
+    if (document.getElementById('unlock-logout')) {
+        document.getElementById('unlock-logout').addEventListener('click', () => {
+            document.getElementById('unlock-modal').close();
+            handleLogout();
+        });
+    }
 
     document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', (e) => handleTabSwitch(e.target.dataset.target)));
 
@@ -102,36 +104,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 await checkUserEncryptionSetup(user);
             } catch (err) {
                 console.error("Auth Flow Error:", err);
-                showToast("Error: Check Console", 'error');
+                showToast("Auth Error: Check Permissions", 'error');
             }
         } else {
             sessionKey = null;
             if (vaultUnsubscribe) vaultUnsubscribe();
             if (historyUnsubscribe) historyUnsubscribe();
+
+            vaultItems = [];
             renderVault([]);
-            renderHistory(getLocalHistory()); // Back to local only
+
+            // On Logout, ensure we are showing LOCAL history only (which should be empty if cleared)
+            renderHistory(getLocalHistory());
             document.getElementById('history-status').innerText = "Local";
             document.getElementById('history-status').classList.remove('online');
         }
     });
 });
 
+// --- Setup & Reset ---
 async function checkUserEncryptionSetup(user) {
     const userDocRef = db.collection('users').doc(user.uid);
     const doc = await userDocRef.get();
 
-    if (!doc.exists || !doc.data().salt) {
+    // Check for "Reset" flag or missing data
+    if (!doc.exists || !doc.data().salt || !doc.data().challenge) {
         document.getElementById('setup-modal').showModal();
     } else {
         const data = doc.data();
         document.getElementById('unlock-modal').dataset.salt = JSON.stringify(data.salt);
-        // Store validation challenge if it exists, otherwise we might need to migrate
-        if (data.challenge) {
-            document.getElementById('unlock-modal').dataset.challenge = JSON.stringify(data.challenge);
-        }
+        document.getElementById('unlock-modal').dataset.challenge = JSON.stringify(data.challenge);
         document.getElementById('unlock-modal').showModal();
     }
 }
+
+// Global Reset Function (Call from Console or Button)
+window.resetAccount = async function () {
+    if (!currentUser || !confirm("⚠ DELETE ALL DATA?\nThis will wipe your Vault and Master Password. You cannot undo this.")) return;
+
+    try {
+        const batch = db.batch();
+        // 1. Delete User Profile (Salt/Challenge)
+        batch.delete(db.collection('users').doc(currentUser.uid));
+
+        // 2. Delete Vault Items
+        const vaultSnaps = await db.collection('vault').where('uid', '==', currentUser.uid).get();
+        vaultSnaps.forEach(doc => batch.delete(doc.ref));
+
+        // 3. Delete History
+        const histSnaps = await db.collection('generate_history').where('uid', '==', currentUser.uid).get();
+        histSnaps.forEach(doc => batch.delete(doc.ref));
+
+        await batch.commit();
+        alert("Account Reset. Reloading...");
+        location.reload();
+    } catch (e) {
+        alert("Reset Error: " + e.message);
+    }
+};
 
 async function handleSetupSubmit(e) {
     e.preventDefault();
@@ -168,30 +198,35 @@ async function handleUnlockSubmit(e) {
     e.preventDefault();
     const password = document.getElementById('unlock-pass').value;
     const saltArr = JSON.parse(document.getElementById('unlock-modal').dataset.salt || "[]");
-    const challengeRaw = document.getElementById('unlock-modal').dataset.challenge; // Might be undefined for old users
+    const challengeRaw = document.getElementById('unlock-modal').dataset.challenge;
 
-    if (saltArr.length === 0) { showToast("Error: No salt found. Reset data required.", 'error'); return; }
+    if (saltArr.length === 0 || !challengeRaw) {
+        // If NO CHALLENGE exists, we cannot verify the password. 
+        // For security, we must REJECT entry.
+        // User must reset if they are in this state.
+        document.getElementById('unlock-error').innerText = "Security Data Missing. Please Reset Account.";
+        return;
+    }
 
     try {
         const salt = new Uint8Array(saltArr);
         const key = await CryptoUtils.deriveKey(password, salt);
 
         // --- Verify Password ---
-        if (challengeRaw) {
-            const challengeObj = JSON.parse(challengeRaw);
-            try {
-                const result = await CryptoUtils.decrypt(challengeObj, key);
-                if (result !== "VALIDATION_TOKEN") throw new Error("Invalid Token");
-            } catch (decErr) {
-                // Decryption failed = Wrong Password
-                document.getElementById('unlock-error').innerText = "Incorrect Master Password.";
-                document.getElementById('unlock-pass').value = "";
-                document.getElementById('unlock-pass').focus();
-                return; // STOP HERE
-            }
+        const challengeObj = JSON.parse(challengeRaw);
+        try {
+            const result = await CryptoUtils.decrypt(challengeObj, key);
+            if (result !== "VALIDATION_TOKEN") throw new Error("Invalid Token");
+        } catch (decErr) {
+            // Decryption failed = Wrong Password
+            console.error("Unlock Failed:", decErr);
+            document.getElementById('unlock-error').innerText = "Incorrect Master Password.";
+            document.getElementById('unlock-pass').value = "";
+            document.getElementById('unlock-pass').focus();
+            return; // STOP HERE! Do NOT proceed.
         }
 
-        // If we get here, password is correct
+        // Success
         sessionKey = key;
         document.getElementById('unlock-modal').close();
         showToast("Vault Unlocked");
@@ -254,18 +289,18 @@ async function handleSaveSubmit(e) {
     } catch (err) { showToast("Save Failed: " + err.message, 'error'); }
 }
 
-// --- History Logic (Updated) ---
+// --- History Logic (Secure) ---
 function getLocalHistory() { return JSON.parse(localStorage.getItem('pw_history') || '[]'); }
 
 async function saveToHistory(password) {
     // 1. If Logged In: Save to Cloud Only (Encrypted)
     if (currentUser) {
-        if (!sessionKey) return; // If locked, maybe don't save history? Or buffer? For now, skip.
+        if (!sessionKey) return;
         try {
             const encrypted = await CryptoUtils.encrypt(password, sessionKey);
             db.collection("generate_history").add({
                 uid: currentUser.uid,
-                password: encrypted.data, iv: encrypted.iv, // Encrypted!
+                password: encrypted.data, iv: encrypted.iv,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
         } catch (e) { console.error("History Encrypt Fail", e); }
@@ -291,10 +326,10 @@ function subscribeToHistory(uid) {
                     const plaintext = await CryptoUtils.decrypt({ iv: data.iv, data: data.password }, sessionKey);
                     items.push({ ...data, password: plaintext });
                 } catch (e) {
-                    items.push({ ...data, password: "???" });
+                    items.push({ ...data, password: "🔒 [Encrypted]" });
                 }
             } else {
-                items.push(data); // Legacy
+                items.push(data);
             }
         }
         items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
@@ -302,7 +337,8 @@ function subscribeToHistory(uid) {
     });
 }
 
-// ... Rest of UI logic (Generate, Copy, Theme, etc) unchanged ...
+
+// UI Helpers
 function syncLength(e) { document.getElementById('len').value = e.target.value; document.getElementById('len-val').innerText = e.target.value; }
 function initTheme() { const t = localStorage.getItem('theme') || 'light'; if (t === 'dark') applyTheme('dark'); }
 function toggleTheme() { const isDark = document.body.classList.contains('dark-mode'); applyTheme(isDark ? 'light' : 'dark'); localStorage.setItem('theme', isDark ? 'light' : 'dark'); }
@@ -317,7 +353,14 @@ function showToast(msg, type = 'normal') {
     requestAnimationFrame(() => t.classList.add('show')); setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300) }, 3000);
 }
 async function handleLogin() { try { await auth.signInWithPopup(provider); showToast("Signed in"); } catch (e) { showToast("Login failed", 'error'); } }
-async function handleLogout() { localStorage.removeItem('pw_history'); await auth.signOut(); location.reload(); }
+
+// FIX: Wipe Local Storage on Logout
+async function handleLogout() {
+    localStorage.removeItem('pw_history'); // Wipe privacy data
+    await auth.signOut();
+    location.reload();
+}
+
 function updateUIForUser(u) {
     const l = document.getElementById('login-btn'), i = document.getElementById('user-info'), s = document.getElementById('save-btn'), v = document.getElementById('vault-login-msg');
     if (u) { l.classList.add('hidden'); i.classList.remove('hidden'); document.getElementById('user-photo').src = u.photoURL; document.getElementById('user-name').innerText = u.displayName.split(' ')[0]; s.classList.remove('hidden'); v.classList.add('hidden'); }
