@@ -4,65 +4,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enkryptr - Secure Password Manager</title>
+    <title>Enkryptr - Secure Your Digital Life</title>
     <link rel="stylesheet" href="password_generator.css">
 
     <!-- Firebase SDKs (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Config -->
+    <script src="firebase_config.js"></script>
 </head>
 
 <body>
 
-    <div class="container">
+    <div class="landing-container">
 
-        <header class="main-header">
+        <!-- Navbar -->
+        <nav class="landing-nav">
             <div class="logo">Enkryptr</div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <button id="theme-toggle" class="btn-icon" style="border:none; background:transparent;"
-                    title="Toggle Dark Mode">
-                    <!-- Sun Icon (Default) -->
-                    <svg id="icon-sun" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                    <!-- Moon Icon -->
-                    <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                </button>
-                <div class="auth-wrapper">
-                    <div id="user-info" class="user-dropdown-container hidden">
-                        <div class="user-profile-trigger">
-                            <img id="user-photo" src="" alt="User">
-                            <span id="user-name"></span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </div>
-                        <div id="user-dropdown" class="dropdown-menu hidden">
-                            <button id="menu-change-pass" class="dropdown-item">Change Master Password</button>
-                            <button id="menu-reset" class="dropdown-item text-danger">Reset Account</button>
-                            <div class="dropdown-divider"></div>
-                            <button id="menu-logout" class="dropdown-item">Sign Out</button>
-                        </div>
-                    </div>
-                    <button id="login-btn" class="btn-google">
-                        <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+            <button id="theme-toggle" class="btn-icon">
+                <svg id="icon-sun" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+        </nav>
+
+        <!-- Hero Section -->
+        <header class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">Secure Your <span class="text-primary">Digital Life.</span></h1>
+                <p class="hero-subtitle">Generate strong passwords, encrypt them locally, and sync securely across
+                    devices. Zero-Knowledge architecture ensures only YOU hold the keys.</p>
+
+                <ul class="feature-list">
+                    <li>
+                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Military-Grade AES-256 Encryption</span>
+                    </li>
+                    <li>
+                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Zero-Knowledge (Client-Side)</span>
+                    </li>
+                    <li>
+                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>No Analysis or Tracking</span>
+                    </li>
+                    <li>
+                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Offline Capable (Local Mode)</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="hero-card">
+                <div class="login-card glass-panel">
+                    <h2>Get Started</h2>
+                    <p class="text-muted" style="margin-bottom: 2rem;">Choose how you want to use Enkryptr</p>
+
+                    <button id="google-login-btn" class="btn-google-large">
+                        <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                             <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
                                 <path fill="#4285F4"
                                     d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.225 -9.429 56.472 -10.689 57.325 L -10.689 60.125 L -6.829 60.125 C -4.569 58.035 -3.264 54.959 -3.264 51.509 Z" />
@@ -74,238 +99,100 @@
                                     d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z" />
                             </g>
                         </svg>
-                        Sign In
+                        <span>Sign in with Google</span>
                     </button>
+
+                    <div class="divider">
+                        <span>OR</span>
+                    </div>
+
+                    <a href="app.html" class="btn-guest">Continue as Guest</a>
                 </div>
             </div>
         </header>
 
-        <nav class="tabs">
-            <button class="tab-btn active" data-target="generator">Generator</button>
-            <button class="tab-btn" data-target="vault" id="vault-tab-btn">My Vault</button>
-        </nav>
-
-        <!-- Generator Section -->
-        <main id="view-generator" class="view-section">
-            <div class="card">
-                <h1>Generate Password</h1>
-                <div class="output-container">
-                    <input type="text" id="output" placeholder="Your Secure Password" readonly
-                        aria-label="Generated Password">
-                    <div class="action-buttons">
-                        <button id="copy" class="btn-icon" title="Copy to Clipboard">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                        </button>
-                        <button id="save-btn" class="btn-icon save-icon hidden" title="Save to Vault">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="controls">
-                    <div class="control-group length-group">
-                        <label for="len">Length: <span id="len-val">12</span></label>
-                        <input type="range" id="len-range" min="4" max="50" value="12">
-                        <input type="number" id="len" min="4" max="50" value="12" hidden>
-                    </div>
-
-                    <div class="control-group options-group">
-                        <label class="checkbox-chip">
-                            <input type="checkbox" id="uc" checked> ABC
-                        </label>
-                        <label class="checkbox-chip">
-                            <input type="checkbox" id="lc" checked> abc
-                        </label>
-                        <label class="checkbox-chip">
-                            <input type="checkbox" id="num" checked> 123
-                        </label>
-                        <label class="checkbox-chip">
-                            <input type="checkbox" id="spec" checked> !@#
-                        </label>
-                    </div>
-
-                    <p id="error-msg" class="error-msg"></p>
-
-                    <button id="but" class="btn-primary">Generate New Password</button>
-                </div>
-            </div>
-
-            <div class="history-card">
-                <div class="history-header">
-                    <div class="header-left">
-                        <h3>Recent History</h3>
-                        <span id="history-status" class="badge">Local</span>
-                    </div>
-                    <button id="clear-history-btn" class="btn-text-danger">Clear</button>
-                </div>
-                <ul id="history-list">
-                    <!-- History Items -->
-                </ul>
-            </div>
-        </main>
-
-        <!-- Vault Section -->
-        <main id="view-vault" class="view-section hidden">
-            <div class="vault-container">
-                <div class="vault-controls">
-                    <div class="search-wrapper">
-                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text" id="vault-search" placeholder="Search accounts...">
-                    </div>
-                </div>
-
-                <div id="vault-login-msg" class="empty-state hidden">
-                    <h3>Vault Locked</h3>
-                    <p>Please sign in to view your saved passwords.</p>
-                </div>
-
-                <div id="vault-list" class="vault-grid">
-                    <!-- Vault items will appear here -->
-                </div>
-            </div>
-        </main>
-
         <footer class="main-footer">
             <p>Designed and developed by Navaneeth Mohan</p>
         </footer>
-
     </div>
 
-    <!-- Modals -->
-    <dialog id="setup-modal" class="modal">
-        <div class="modal-content">
-            <h2 style="text-align:center;">🔐 Setup Master Password</h2>
-            <p style="text-align:center;">This password encrypts your vault. <strong>If you lose it, your data is lost
-                    forever.</strong> We cannot recover it.</p>
-            <form id="setup-form" method="dialog">
-                <div class="form-group">
-                    <label>Create Master Password</label>
-                    <input type="password" id="setup-pass" required minlength="8" placeholder="Minimum 8 characters">
-                </div>
-                <div class="form-group">
-                    <label>Confirm Password</label>
-                    <input type="password" id="setup-confirm" required placeholder="Type it again">
-                </div>
-                <p id="setup-error" class="error-msg text-center"></p>
-                <div class="modal-actions">
-                    <button type="submit" id="setup-submit" class="btn-primary" style="width:100%">Enable
-                        Encryption</button>
-                </div>
-            </form>
-        </div>
-    </dialog>
+    <!-- Simple Script for Landing -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
 
-    <dialog id="unlock-modal" class="modal">
-        <div class="modal-content">
-            <h2 style="text-align:center;">🔓 Unlock Vault</h2>
-            <p style="text-align:center;">Enter your Master Password to decrypt your passwords.</p>
-            <form id="unlock-form" method="dialog">
-                <div class="form-group">
-                    <label>Master Password</label>
-                    <input type="password" id="unlock-pass" required autofocus placeholder="Enter encryption password">
-                </div>
-                <p id="unlock-error" class="error-msg text-center"></p>
+            // --- 1. THEME LOGIC (Independent) ---
+            function initTheme() {
+                const t = localStorage.getItem('theme') || 'light';
+                if (t === 'dark') applyTheme('dark');
+            }
 
-                <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button type="button" id="unlock-logout" class="btn-text" style="margin-right: auto;">Sign
-                        Out</button>
-                    <button type="submit" id="unlock-submit" class="btn-primary">Unlock</button>
-                </div>
+            function toggleTheme() {
+                const isDark = document.body.classList.contains('dark-mode');
+                applyTheme(isDark ? 'light' : 'dark');
+                localStorage.setItem('theme', isDark ? 'light' : 'dark');
+            }
 
-                <div
-                    style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; text-align: center;">
-                    <button type="button" onclick="window.resetAccount()" class="btn-text"
-                        style="color: var(--danger-color); font-size: 0.8em;">
-                        Forgot Password? Reset Account
-                    </button>
-                </div>
-            </form>
-        </div>
-    </dialog>
+            function applyTheme(t) {
+                const s = document.getElementById('icon-sun');
+                const m = document.getElementById('icon-moon');
+                if (!s || !m) return;
 
-    <dialog id="save-modal" class="modal">
-        <div class="modal-content">
-            <h2>Add to Vault</h2>
-            <form id="save-form" method="dialog">
-                <div class="form-group">
-                    <label>Account Name</label>
-                    <input type="text" id="modal-site" placeholder="e.g. Netflix, Gmail" required>
-                </div>
-                <div class="form-group">
-                    <label>Website URL (optional)</label>
-                    <input type="text" id="modal-url" placeholder="e.g. netflix.com">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="pass-revealer">
-                        <input type="text" id="modal-pass" readonly>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" id="modal-cancel" class="btn-text">Cancel</button>
-                    <button type="submit" id="modal-confirm" class="btn-primary">Save Password</button>
-                </div>
-            </form>
-        </div>
-    </dialog>
+                if (t === 'dark') {
+                    document.body.classList.add('dark-mode');
+                    s.classList.remove('hidden');
+                    m.classList.add('hidden');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    s.classList.add('hidden');
+                    m.classList.remove('hidden');
+                }
+            }
 
-    <dialog id="confirm-modal" class="modal modal-sm">
-        <div class="modal-content">
-            <h3>Delete Password?</h3>
-            <p>Are you sure you want to delete this item? This action cannot be undone.</p>
-            <div class="modal-actions">
-                <button id="confirm-cancel" class="btn-text">Cancel</button>
-                <button id="confirm-delete" class="btn-danger">Delete</button>
-            </div>
-        </div>
-    </dialog>
+            const themeBtn = document.getElementById('theme-toggle');
+            if (themeBtn) {
+                themeBtn.addEventListener('click', toggleTheme);
+                // Initialize immediately
+                initTheme();
+            } else {
+                console.error("Theme toggle button not found");
+            }
 
-    <dialog id="change-pass-modal" class="modal">
-        <div class="modal-content">
-            <h2>Change Master Password</h2>
-            <p><strong>Warning:</strong> This will decrypt and re-encrypt all your vault items. Do not close the window
-                during this process.</p>
-            <form id="change-pass-form" method="dialog">
-                <div class="form-group">
-                    <label>Current Master Password</label>
-                    <input type="password" id="cp-old" required>
-                </div>
-                <div class="form-group">
-                    <label>New Master Password</label>
-                    <input type="password" id="cp-new" required minlength="8">
-                </div>
-                <div class="form-group">
-                    <label>Confirm New Password</label>
-                    <input type="password" id="cp-confirm" required>
-                </div>
-                <p id="cp-error" class="error-msg text-center"></p>
-                <div class="modal-actions">
-                    <button type="button" id="cp-cancel" class="btn-text">Cancel</button>
-                    <button type="submit" id="cp-submit" class="btn-primary">Update Password</button>
-                </div>
-            </form>
-        </div>
-    </dialog>
+            // --- 2. FIREBASE / AUTH LOGIC ---
+            // Wrap in try-catch so it doesn't break the UI if it fails
+            try {
+                if (typeof firebase === 'undefined') {
+                    console.warn("Firebase SDK not loaded");
+                    return; // Stop auth logic
+                }
 
-    <!-- Toast Container -->
-    <div id="toast-container"></div>
+                firebase.initializeApp(firebaseConfig);
+                const auth = firebase.auth();
+                const provider = new firebase.auth.GoogleAuthProvider();
 
-    <script src="password_generator.js"></script>
+                const googleBtn = document.getElementById('google-login-btn');
+                if (googleBtn) {
+                    googleBtn.addEventListener('click', async () => {
+                        try {
+                            await auth.signInWithPopup(provider);
+                            window.location.href = "app.html";
+                        } catch (err) {
+                            console.error(err);
+                            alert("Login failed: " + err.message);
+                        }
+                    });
+                }
+
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        window.location.href = "app.html";
+                    }
+                });
+
+            } catch (err) {
+                console.warn("Firebase Init Failed (Offline?):", err);
+            }
+        });
+    </script>
 </body>
 
 </html>
