@@ -526,6 +526,10 @@ function lockVault() {
     if (historyUnsubscribe) historyUnsubscribe();
 
     showToast("Vault Locked (Inactivity)", 'normal');
+
+    // Security: Clear the password field so it can't be reused
+    document.getElementById('unlock-pass').value = "";
+
     checkUserEncryptionSetup(currentUser); // Re-prompt unlock
 }
 
