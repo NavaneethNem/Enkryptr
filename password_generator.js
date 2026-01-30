@@ -205,11 +205,13 @@ async function handleChangePasswordSubmit(e) {
         // 4. Commit
         await batch.commit();
 
-        // 5. Update Session
-        sessionKey = newKey;
+        // 5. Update Session -> FORCE LOGOUT
+        // sessionKey = newKey; // Old way
         document.getElementById('change-pass-modal').close();
         document.getElementById('change-pass-form').reset();
-        showToast("Master Password Changed Successfully!");
+
+        alert("Success! Please sign in again with your NEW Master Password.");
+        handleLogout(); // Force re-auth to verify
 
     } catch (err) {
         console.error(err);
