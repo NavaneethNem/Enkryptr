@@ -56,7 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('vault-search').addEventListener('input', handleVaultSearch);
     document.getElementById('clear-history-btn').addEventListener('click', handleClearHistory);
 
+    // --- Theme Events ---
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
     // Initial State
+    initTheme();
     renderHistory(getLocalHistory());
 
     // --- Auth State ---
@@ -87,6 +91,34 @@ function syncLength(e) {
     const val = e.target.value;
     document.getElementById('len').value = val;
     document.getElementById('len-val').innerText = val;
+}
+
+// --- Theme ---
+function initTheme() {
+    const theme = localStorage.getItem('theme') || 'light';
+    if (theme === 'dark') applyTheme('dark');
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.contains('dark-mode');
+    const newTheme = isDark ? 'light' : 'dark';
+    applyTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+}
+
+function applyTheme(theme) {
+    const sun = document.getElementById('icon-sun');
+    const moon = document.getElementById('icon-moon');
+
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        sun.classList.remove('hidden');
+        moon.classList.add('hidden');
+    } else {
+        document.body.classList.remove('dark-mode');
+        sun.classList.add('hidden');
+        moon.classList.remove('hidden');
+    }
 }
 
 // --- Toast System ---
