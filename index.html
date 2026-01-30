@@ -44,10 +44,22 @@
                     </svg>
                 </button>
                 <div class="auth-wrapper">
-                    <div id="user-info" class="hidden">
-                        <img id="user-photo" src="" alt="User">
-                        <span id="user-name"></span>
-                        <button id="logout-btn" class="btn-text">Sign Out</button>
+                    <div id="user-info" class="user-dropdown-container hidden">
+                        <div class="user-profile-trigger">
+                            <img id="user-photo" src="" alt="User">
+                            <span id="user-name"></span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                        <div id="user-dropdown" class="dropdown-menu hidden">
+                            <button id="menu-change-pass" class="dropdown-item">Change Master Password</button>
+                            <button id="menu-reset" class="dropdown-item text-danger">Reset Account</button>
+                            <div class="dropdown-divider"></div>
+                            <button id="menu-logout" class="dropdown-item">Sign Out</button>
+                        </div>
                     </div>
                     <button id="login-btn" class="btn-google">
                         <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
@@ -256,6 +268,33 @@
                 <button id="confirm-cancel" class="btn-text">Cancel</button>
                 <button id="confirm-delete" class="btn-danger">Delete</button>
             </div>
+        </div>
+    </dialog>
+
+    <dialog id="change-pass-modal" class="modal">
+        <div class="modal-content">
+            <h2>Change Master Password</h2>
+            <p><strong>Warning:</strong> This will decrypt and re-encrypt all your vault items. Do not close the window
+                during this process.</p>
+            <form id="change-pass-form" method="dialog">
+                <div class="form-group">
+                    <label>Current Master Password</label>
+                    <input type="password" id="cp-old" required>
+                </div>
+                <div class="form-group">
+                    <label>New Master Password</label>
+                    <input type="password" id="cp-new" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="cp-confirm" required>
+                </div>
+                <p id="cp-error" class="error-msg text-center"></p>
+                <div class="modal-actions">
+                    <button type="button" id="cp-cancel" class="btn-text">Cancel</button>
+                    <button type="submit" id="cp-submit" class="btn-primary">Update Password</button>
+                </div>
+            </form>
         </div>
     </dialog>
 
