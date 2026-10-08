@@ -1,0 +1,6 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const fs=require('node:fs');const vm=require('node:vm');const path=require('node:path');
+function load(){const file=path.join(__dirname,'..','showcase.js');assert.ok(fs.existsSync(file),'showcase motion module is missing');const ctx={module:{exports:{}},Math,Uint32Array,globalThis:{crypto:require('node:crypto').webcrypto}};vm.runInNewContext(fs.readFileSync(file,'utf8'),ctx);return ctx.module.exports;}
+test('critically damped spring settles without overshoot',()=>{const {springStep}=load();let state={value:0,velocity:0};for(let n=0;n<120;n++){state=springStep(state,1,1/60);assert.ok(state.value<=1);assert.ok(state.value>=0);}assert.ok(Math.abs(state.value-1)<.00001);});
+test('retargeting starts at current presentation and carries velocity',()=>{const {springStep}=load();let state=springStep({value:0,velocity:0},100,.04);const value=state.value,velocity=state.velocity;const immediate=springStep(state,-100,0);assert.equal(immediate.value,value);assert.equal(immediate.velocity,velocity);});
+test('landing sample uses requested length and full character selection',()=>{const {secureSample}=load();for(let i=0;i<20;i++){const p=secureSample(20);assert.equal(p.length,20);assert.match(p,/[A-Z]/);assert.match(p,/[a-z]/);assert.match(p,/[0-9]/);assert.match(p,/[!@#$%&*?]/);}});

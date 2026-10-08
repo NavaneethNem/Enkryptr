@@ -1,0 +1,25 @@
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
+test('workspace is a focused silver instrument with a dark oversized password display and blue controls', () => {
+ const html = read('app.html'), css = read('password_generator.css');
+ assert.match(html, /class="password-instrument"/,'dedicated operating surface replaces generic card');
+ assert.match(html, /class="instrument-display"/);
+ assert.match(html, /class="brand-key"/);
+ assert.doesNotMatch(html, /⌘|🔐|🔓/);
+ assert.match(css, /--primary-color:\s*#0071e3/);
+ assert.match(css, /\.instrument-display\s*\{/);
+ assert.match(css, /font-size:\s*clamp\(1\.5rem,\s*4vw,\s*3\.5rem\)/);
+ assert.match(css, /prefers-reduced-motion/);
+ assert.match(css, /body\.dark-mode/);
+ assert.doesNotMatch(css, /soft-green|#226451|#9ad5b9/);
+ const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+ assert.equal(ids.length,new Set(ids).size,'all IDs remain unique');
+ for(const id of ['output','len-range','len','len-val','uc','lc','num','spec','but','copy','save-btn','history-list','history-status','clear-history-btn','theme-toggle','icon-sun','icon-moon','login-btn','user-info','user-photo','user-name','user-dropdown','menu-change-pass','menu-reset','menu-logout','vault-tab-btn','view-generator','view-vault','vault-search','vault-login-msg','vault-list','setup-modal','setup-form','setup-pass','setup-confirm','setup-error','setup-submit','unlock-modal','unlock-form','unlock-pass','unlock-error','unlock-logout','unlock-submit','save-modal','save-form','modal-site','modal-url','modal-pass','modal-cancel','modal-confirm','confirm-modal','confirm-cancel','confirm-delete','change-pass-modal','change-pass-form','cp-old','cp-new','cp-confirm','cp-error','cp-cancel','cp-submit','toast-container']) assert.ok(ids.includes(id),`preserve ${id}`);
+ assert.match(html,/data-target="generator"/);
+ assert.match(html,/data-target="vault"/);
+ assert.match(html,/id="len-range" min="4" max="50" value="12"/);
+ for(const id of ['uc','lc','num','spec']) assert.match(html,new RegExp(`id="${id}" checked`));
+});

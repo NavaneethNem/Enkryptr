@@ -1,121 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enkryptr - Secure Your Digital Life</title>
-    <link rel="icon" type="image/svg+xml" href="key-solid-full.svg">
-    <link rel="stylesheet" href="password_generator.css">
-
-    <!-- Firebase SDKs (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <!-- Config removed to avoid module errors. Embedded below. -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Enkryptr. Strong passwords, client-side encryption, and a key only you hold. A personal password manager.">
+  <title>Enkryptr — Your digital life. Under lock.</title>
+  <link rel="icon" type="image/svg+xml" href="key-solid-full.svg">
+  <link rel="preload" as="image" href="assets/key-studio.png">
+  <link rel="stylesheet" href="landing.css">
+  <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script defer src="showcase.js"></script>
 </head>
-
-<body>
-
-    <div class="landing-container">
-
-        <!-- Navbar -->
-        <nav class="landing-nav">
-            <div class="logo">Enkryptr</div>
-            <button id="theme-toggle" class="btn-icon">
-                <svg id="icon-sun" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="5"></circle>
-                    <line x1="12" y1="1" x2="12" y2="3"></line>
-                    <line x1="12" y1="21" x2="12" y2="23"></line>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                    <line x1="1" y1="12" x2="3" y2="12"></line>
-                    <line x1="21" y1="12" x2="23" y2="12"></line>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                </svg>
-                <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg>
-            </button>
-        </nav>
-
-        <!-- Hero Section -->
-        <header class="hero-section">
-            <div class="hero-content">
-                <h1 class="hero-title">Secure Your <span class="text-primary">Digital Life.</span></h1>
-                <p class="hero-subtitle">Generate strong passwords, encrypt them locally, and sync securely across
-                    devices. Zero-Knowledge architecture ensures only YOU hold the keys.</p>
-
-                <ul class="feature-list">
-                    <li>
-                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>AES-256 Encryption</span>
-                    </li>
-                    <li>
-                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>Zero-Knowledge (Client-Side)</span>
-                    </li>
-                    <li>
-                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>No Analysis or Tracking</span>
-                    </li>
-                    <li>
-                        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>Offline Capable (Local Mode)</span>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="hero-card">
-                <div class="login-card glass-panel">
-                    <h2>Get Started</h2>
-                    <p class="text-muted" style="margin-bottom: 2rem;">Choose how you want to use Enkryptr</p>
-
-                    <button id="google-login-btn" class="btn-google-large">
-                        <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                            <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
-                                <path fill="#4285F4"
-                                    d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.225 -9.429 56.472 -10.689 57.325 L -10.689 60.125 L -6.829 60.125 C -4.569 58.035 -3.264 54.959 -3.264 51.509 Z" />
-                                <path fill="#34A853"
-                                    d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.129 L -10.684 57.329 C -11.764 58.059 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z" />
-                                <path fill="#FBBC05"
-                                    d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z" />
-                                <path fill="#EA4335"
-                                    d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z" />
-                            </g>
-                        </svg>
-                        <span>Sign in with Google</span>
-                    </button>
-
-                    <div class="divider">
-                        <span>OR</span>
-                    </div>
-
-                    <a href="app.html" class="btn-guest">Continue as Guest</a>
-                </div>
-            </div>
-        </header>
-
-        <footer class="main-footer">
-            <p>Designed and developed by Navaneeth Mohan</p>
-        </footer>
-    </div>
-
+<body class="welcome-page">
+  <a class="skip-link" href="#overview">Skip to content</a>
+  <header class="site-header">
+    <nav class="site-nav" aria-label="Main navigation">
+      <a class="wordmark" href="index.html" aria-label="Enkryptr overview"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><circle cx="8" cy="8" r="4.5"/><path d="m11.2 11.2 9 9m-3-3 2-2m-5-1 2-2"/></svg><span>enkryptr</span></a>
+      <div class="nav-links"><a href="#overview">Overview</a><a href="#privacy">Privacy</a><a href="app.html">Generator</a></div>
+      <a class="nav-cta" href="app.html">Open app <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 8h10M8 3l5 5-5 5"/></svg></a>
+    </nav>
+  </header>
+  <main>
+    <section id="overview" class="product-hero" aria-labelledby="hero-heading">
+      <div class="hero-heading"><p class="overline">INTRODUCING ENKRYPTR</p><h1 id="hero-heading">Your digital life.<br><span class="titanium-text">Under lock.</span></h1></div>
+      <div class="key-stage">
+        <div class="key-shadow" aria-hidden="true"></div>
+        <img class="hero-key" src="assets/key-studio.png" width="1600" height="1100" alt="A sculptural silver key, the symbol of Enkryptr" fetchpriority="high">
+        <div class="object-label object-label-left" aria-hidden="true"><span class="label-line"></span><span>ENCRYPTED ON DEVICE</span><small>AES-256-GCM</small></div>
+        <div class="object-label object-label-right" aria-hidden="true"><span class="label-line"></span><span>ONE KEY. ONLY YOURS.</span><small>Client-side key derivation</small></div>
+      </div>
+      <div class="hero-bottom"><p>Stronger passwords. A private vault.<br>A key that never leaves your hands.</p><div class="hero-actions"><a class="pill pill-primary" href="app.html">Open password generator <span aria-hidden="true">↗</span></a><a class="text-link" href="#privacy">Take a closer look <span aria-hidden="true">↓</span></a></div><span class="hero-caption">No account needed to generate. Sign in to save &amp; sync.</span></div>
+      <a class="scroll-cue" href="#privacy" aria-label="Explore privacy"><span aria-hidden="true">↓</span></a>
+    </section>
+    <section id="privacy" class="privacy-story" aria-labelledby="privacy-heading">
+      <div class="story-container">
+        <div class="story-top" data-reveal><p class="section-kicker">PRIVACY, AT THE CORE.</p><span class="section-index" aria-hidden="true">01 / THE KEY</span></div>
+        <div class="privacy-layout">
+          <div class="privacy-copy" data-reveal><h2 id="privacy-heading">Only you.<br><span>Hold the key.</span></h2><p class="story-lead">Not us. Not the cloud.<br>Just you.</p><p class="story-body">Your master password derives your vault key right in your browser. Your signed-in vault is encrypted before it reaches the cloud. We store the ciphertext. You keep the key.</p><a class="text-link light-link" href="#encryption">Inside the encryption <span aria-hidden="true">↘</span></a></div>
+          <div class="key-detail" data-reveal><img src="assets/key-studio.png" alt="" width="1600" height="1100" loading="lazy"><div class="detail-caption"><span>AES-256-GCM</span><span>CLIENT-SIDE ENCRYPTION</span></div></div>
+        </div>
+        <div id="encryption" class="encryption-flow" data-reveal aria-label="Encryption flow"><div><span class="flow-step">ON YOUR DEVICE</span><strong>Your master password</strong><p>PBKDF2 key derivation</p></div><span class="flow-arrow" aria-hidden="true">→</span><div><span class="flow-step">BEFORE SYNC</span><strong>Encrypted vault</strong><p>AES-256-GCM encryption</p></div><span class="flow-arrow" aria-hidden="true">→</span><div><span class="flow-step">IN THE CLOUD</span><strong>Only ciphertext</strong><p>Your key stays in the browser</p></div></div>
+      </div>
+    </section>
+    <section id="unpredictable" class="random-story" aria-labelledby="random-heading">
+      <div class="story-container">
+        <div class="story-top" data-reveal><p class="section-kicker">GOODBYE, PREDICTABLE.</p><span class="section-index" aria-hidden="true">02 / THE GENERATOR</span></div>
+        <div class="random-heading" data-reveal><h2 id="random-heading">Not your birthday.<br><span>Not even close.</span></h2><p>Real randomness. Right in your browser.<br>Built with the Web Crypto API, not guesswork.</p></div>
+        <div class="password-stage" data-reveal><p class="demo-caption">A LITTLE UNPREDICTABILITY</p><output id="demo-password" aria-label="Sample generated password" aria-live="polite">••••••••••••••••••••</output><div class="demo-bottom"><span>20 characters. Generated locally. Not saved.</span><button id="demo-regenerate" class="regenerate-button" type="button" aria-label="Generate another sample password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 11.5-1L20 9M4 15l2.5 3A7 7 0 0 0 18 17"/></svg><span>Again</span></button></div></div>
+        <div class="generator-outro" data-reveal><p>Choose the length. Pick the characters.<br>Make a password that’s uniquely unpredictable.</p><a class="text-link" href="app.html">Make it yours <span aria-hidden="true">↗</span></a></div>
+      </div>
+    </section>
+    <section id="start" class="start-story" aria-labelledby="start-heading">
+      <div class="start-orbit" aria-hidden="true"><span></span><span></span><svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width=".8"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg></div>
+      <div class="start-copy" data-reveal><p class="section-kicker">YOUR NEXT CHAPTER. MORE PRIVATE.</p><h2 id="start-heading">Keep your life.<br>To yourself.</h2><p>Start with a password.<br>Stay for a place to keep them.</p><div class="start-actions"><button id="google-login-btn" class="pill pill-primary" type="button"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2.1H12v4h5.4a4.6 4.6 0 0 1-2 3v2.5h3.3c2-1.8 2.9-4.3 2.9-7.4ZM12 22c2.7 0 5-.9 6.7-2.4l-3.3-2.5c-.9.6-2 .9-3.4.9a6 6 0 0 1-5.6-4.2H3v2.6A10 10 0 0 0 12 22ZM6.4 13.8A6 6 0 0 1 6 12c0-.6.1-1.2.4-1.8V7.6H3A10 10 0 0 0 2 12c0 1.6.4 3 1 4.4l3.4-2.6ZM12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.8A9.6 9.6 0 0 0 12 2a10 10 0 0 0-9 5.6l3.4 2.6A6 6 0 0 1 12 6Z"/></svg><span>Sign in with Google</span></button><a class="text-link" href="app.html">Try without an account <span aria-hidden="true">↗</span></a></div></div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-top"><a class="footer-wordmark" href="#overview">enkryptr</a><p>Your digital life. Under lock.</p><a href="app.html">Open app ↗</a></div><div class="footer-bottom"><p>Designed &amp; developed by Navaneeth Mohan.</p><p>For learning &amp; personal use. Not a production password manager.</p></div></footer>
     <!-- Simple Script for Landing -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -196,5 +138,4 @@
         });
     </script>
 </body>
-
 </html>
